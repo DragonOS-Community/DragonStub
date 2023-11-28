@@ -1,27 +1,71 @@
 #include <efi.h>
 #include <efilib.h>
+#include <dragonstub/printk.h>
+#include <dragonstub/dragonstub.h>
 
-static CHAR16 *
-a2u (char *str)
-{
-	static CHAR16 mem[2048];
-	int i;
-
-	for (i = 0; str[i]; ++i)
-		mem[i] = (CHAR16) str[i];
-	mem[i] = 0;
-	return mem;
-}
+void print_dragonstub_banner(void);
 
 EFI_STATUS
-efi_main (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
+efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 {
-	SIMPLE_TEXT_OUTPUT_INTERFACE *conout;
+	EFI_STATUS status;
+	EFI_LOADED_IMAGE *loaded_image = NULL;
+	/* addr/point and size pairs for memory management*/
+	char *cmdline_ptr = NULL;
 
 	InitializeLib(image_handle, systab);
-	conout = systab->ConOut;
-	uefi_call_wrapper(conout->OutputString, 2, conout, (CHAR16 *)L"Hello World!\n\r");
-	uefi_call_wrapper(conout->OutputString, 2, conout, a2u("Hello World!\n\r"));
+
+	print_dragonstub_banner();
+
+	efi_info("EFI env initialized\n");
+
+	/*
+	 * Get a handle to the loaded image protocol.  This is used to get
+	 * information about the running image, such as size and the command
+	 * line.
+	 */
+	status = uefi_call_wrapper(BS->OpenProtocol, 6, image_handle,
+				   &LoadedImageProtocol, (void **)&loaded_image,
+				   image_handle, NULL,
+				   EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+	if (EFI_ERROR(status)) {
+		efi_err("Could not open loaded image protocol: %d\n", status);
+		return status;
+	}
+
+	efi_info("Loaded image protocol opened\n");
+
+	status = efi_handle_cmdline(loaded_image, &cmdline_ptr);
+
+	if (EFI_ERROR(status)) {
+		efi_err("Could not get command line: %d\n", status);
+		return status;
+	}
+	if (cmdline_ptr == NULL)
+		efi_warn("Command line is NULL\n");
+	else
+		efi_info("Command line: %s\n", cmdline_ptr);
+
+	efi_info("Booting DragonOS kernel...\n");
+
+	efi_todo("Boot DragonOS kernel");
 
 	return EFI_SUCCESS;
+}
+
+/// @brief Print thr DragonStub banner
+void print_dragonstub_banner(void)
+{
+	efi_printk(
+		" ____                              ____  _         _     \n");
+	efi_printk(
+		"|  _ \\ _ __ __ _  __ _  ___  _ __ / ___|| |_ _   _| |__  \n");
+	efi_printk(
+		"| | | | '__/ _` |/ _` |/ _ \\| '_ \\\\___ \\| __| | | | '_ \\ \n");
+	efi_printk(
+		"| |_| | | | (_| | (_| | (_) | | | |___) | |_| |_| | |_) |\n");
+	efi_printk(
+		"|____/|_|  \\__,_|\\__, |\\___/|_| |_|____/ \\__|\\__,_|_.__/ \n");
+	efi_printk(
+		"                 |___/                                   \n");
 }

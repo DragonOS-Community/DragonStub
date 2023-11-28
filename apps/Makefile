@@ -87,11 +87,15 @@ endif
 
 
 
-DRAGON_STUB_FILES:= dragon_stub-main.c
+DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c lib/vsprintf.c lib/hexdump.c lib/ctype.c
 # 把*.c的列表转换为*.o的列表
 DRAGON_STUB_OBJS := $(patsubst %.c,%.o,$(DRAGON_STUB_FILES))
 
+
 dragon_stub: $(DRAGON_STUB_OBJS)
+	@echo "Building dragon_stub..."
+
+
 	
 	$(LD) $(LDFLAGS) $^ -o dragon_stub.so $(LOADLIBES)
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .rodata -j .rel \
@@ -99,7 +103,7 @@ dragon_stub: $(DRAGON_STUB_OBJS)
 		    -j .areloc -j .reloc $(FORMAT) dragon_stub.so dragon_stub.efi
 
 
-TARGETS = dragon_stub $(TARGET_BSDRIVERS) $(TARGET_RTDRIVERS) 
+TARGETS = $(TARGET_BSDRIVERS) $(TARGET_RTDRIVERS) dragon_stub 
 
 all:	$(TARGETS)
 

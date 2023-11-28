@@ -109,7 +109,7 @@ OBJDIR       := $(TOPDIR)/$(ARCH)
 #
 
 # Arch-specific compilation flags
-CPPFLAGS += -DCONFIG_$(ARCH)
+CPPFLAGS += -DCONFIG_$(ARCH) -DCONFIG_64BIT
 
 CFLAGS += -Wno-error=pragmas
 

@@ -1,5 +1,6 @@
 #ifndef _EFI_DEF_H
 #define _EFI_DEF_H
+#include <efibind.h>
 
 /*++
 
