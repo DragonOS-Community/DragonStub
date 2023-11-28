@@ -87,7 +87,13 @@ endif
 
 
 
-DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c lib/vsprintf.c lib/hexdump.c lib/ctype.c
+DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c
+DRAGON_STUB_FILES += lib/vsprintf.c lib/hexdump.c lib/ctype.c lib/cmdline.c lib/string.c
+
+ifeq ($(ARCH), riscv64)
+	DRAGON_STUB_FILES += riscv-stub.c
+endif
+
 # 把*.c的列表转换为*.o的列表
 DRAGON_STUB_OBJS := $(patsubst %.c,%.o,$(DRAGON_STUB_FILES))
 

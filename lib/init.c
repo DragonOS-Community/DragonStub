@@ -16,16 +16,9 @@ Revision History
 
 #include "lib.h"
 
-VOID
-EFIDebugVariable (
-    VOID
-    );
+VOID EFIDebugVariable(VOID);
 
-VOID
-InitializeLib (
-    IN EFI_HANDLE           ImageHandle,
-    IN EFI_SYSTEM_TABLE     *SystemTable
-    )
+VOID InitializeLib(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
 /*++
 
 Routine Description:
@@ -40,142 +33,139 @@ Returns:
 
     None
 
---*/ 
+--*/
 {
-    EFI_LOADED_IMAGE        *LoadedImage;
-    EFI_STATUS              Status;
-    CHAR8                   *LangCode;
+	EFI_LOADED_IMAGE *LoadedImage;
+	EFI_STATUS Status;
+	CHAR8 *LangCode;
 
-    if (LibInitialized)
-	return;
+	if (LibInitialized)
+		return;
 
-    LibInitialized = TRUE;
-    LibFwInstance = FALSE;
-    LibImageHandle = ImageHandle;
+	LibInitialized = TRUE;
+	LibFwInstance = FALSE;
+	LibImageHandle = ImageHandle;
 
-    //
-    // Set up global pointer to the system table, boot services table,
-    // and runtime services table
-    //
+	//
+	// Set up global pointer to the system table, boot services table,
+	// and runtime services table
+	//
 
-    ST = SystemTable;
-    BS = SystemTable->BootServices;
-    RT = SystemTable->RuntimeServices;
-    // ASSERT (CheckCrc(0, &ST->Hdr));
-    // ASSERT (CheckCrc(0, &BS->Hdr));
-    // ASSERT (CheckCrc(0, &RT->Hdr));
+	ST = SystemTable;
+	BS = SystemTable->BootServices;
+	RT = SystemTable->RuntimeServices;
+	// ASSERT (CheckCrc(0, &ST->Hdr));
+	// ASSERT (CheckCrc(0, &BS->Hdr));
+	// ASSERT (CheckCrc(0, &RT->Hdr));
 
-    //
-    // Initialize pool allocation type
-    //
+	//
+	// Initialize pool allocation type
+	//
 
-    if (ImageHandle) {
-	Status = uefi_call_wrapper(
-	    BS->HandleProtocol,
-	    3,
-	    ImageHandle,
-	    &LoadedImageProtocol,
-	    (VOID*)&LoadedImage
-	);
+	if (ImageHandle) {
+		Status = uefi_call_wrapper(BS->HandleProtocol, 3, ImageHandle,
+					   &LoadedImageProtocol,
+					   (VOID *)&LoadedImage);
 
-	if (!EFI_ERROR(Status)) {
-	    PoolAllocationType = LoadedImage->ImageDataType;
+		if (!EFI_ERROR(Status)) {
+			PoolAllocationType = LoadedImage->ImageDataType;
+		}
+		EFIDebugVariable();
 	}
-	EFIDebugVariable ();
-    }
 
-    //
-    // Initialize Guid table
-    //
+	//
+	// Initialize Guid table
+	//
 
-    InitializeGuid();
+	InitializeGuid();
 
-    InitializeLibPlatform(ImageHandle,SystemTable);
+	InitializeLibPlatform(ImageHandle, SystemTable);
 
-    if (ImageHandle && UnicodeInterface == &LibStubUnicodeInterface) {
-        LangCode = LibGetVariable (VarLanguage, &EfiGlobalVariable);
-        InitializeUnicodeSupport (LangCode);
-        if (LangCode) {
-            FreePool (LangCode);
-        }
-    }
+	if (ImageHandle && UnicodeInterface == &LibStubUnicodeInterface) {
+		LangCode = LibGetVariable(VarLanguage, &EfiGlobalVariable);
+		InitializeUnicodeSupport(LangCode);
+		if (LangCode) {
+			FreePool(LangCode);
+		}
+	}
 }
 
-VOID
-InitializeUnicodeSupport (
-    CHAR8 *LangCode
-    )
+VOID InitializeUnicodeSupport(CHAR8 *LangCode)
 {
-    EFI_UNICODE_COLLATION_INTERFACE *Ui;
-    EFI_STATUS                      Status;
-    CHAR8                           *Languages;
-    UINTN                           Index, Position, Length;
-    UINTN                           NoHandles;
-    EFI_HANDLE                      *Handles;
+	EFI_UNICODE_COLLATION_INTERFACE *Ui;
+	EFI_STATUS Status;
+	CHAR8 *Languages;
+	UINTN Index, Position, Length;
+	UINTN NoHandles;
+	EFI_HANDLE *Handles;
 
-    //
-    // If we don't know it, lookup the current language code
-    //
+	//
+	// If we don't know it, lookup the current language code
+	//
 
-    LibLocateHandle (ByProtocol, &UnicodeCollationProtocol, NULL, &NoHandles, &Handles);
-    if (!LangCode || !NoHandles) {
-        goto Done;
-    }
+	LibLocateHandle(ByProtocol, &UnicodeCollationProtocol, NULL, &NoHandles,
+			&Handles);
+	if (!LangCode || !NoHandles) {
+		goto Done;
+	}
 
-    //
-    // Check all driver's for a matching language code
-    //
+	//
+	// Check all driver's for a matching language code
+	//
 
-    for (Index=0; Index < NoHandles; Index++) {
-        Status = uefi_call_wrapper(BS->HandleProtocol, 3, Handles[Index], &UnicodeCollationProtocol, (VOID*)&Ui);
-        if (EFI_ERROR(Status)) {
-            continue;
-        }
+	for (Index = 0; Index < NoHandles; Index++) {
+		Status = uefi_call_wrapper(BS->HandleProtocol, 3,
+					   Handles[Index],
+					   &UnicodeCollationProtocol,
+					   (VOID *)&Ui);
+		if (EFI_ERROR(Status)) {
+			continue;
+		}
 
-        //
-        // Check for a matching language code
-        //
+		//
+		// Check for a matching language code
+		//
 
-        Languages = Ui->SupportedLanguages;
-        Length = strlena(Languages);
-        for (Position=0; Position < Length; Position += ISO_639_2_ENTRY_SIZE) {
+		Languages = Ui->SupportedLanguages;
+		Length = strlena(Languages);
+		for (Position = 0; Position < Length;
+		     Position += ISO_639_2_ENTRY_SIZE) {
+			//
+			// If this code matches, use this driver
+			//
 
-            //
-            // If this code matches, use this driver
-            //
-
-            if (CompareMem (Languages+Position, LangCode, ISO_639_2_ENTRY_SIZE) == 0) {
-                UnicodeInterface = Ui;
-                goto Done;
-            }
-        }
-    }
+			if (CompareMem(Languages + Position, LangCode,
+				       ISO_639_2_ENTRY_SIZE) == 0) {
+				UnicodeInterface = Ui;
+				goto Done;
+			}
+		}
+	}
 
 Done:
-    //
-    // Cleanup
-    //
+	//
+	// Cleanup
+	//
 
-    if (Handles) {
-        FreePool (Handles);
-    }
+	if (Handles) {
+		FreePool(Handles);
+	}
 }
 
-VOID
-EFIDebugVariable (
-    VOID
-    )
+VOID EFIDebugVariable(VOID)
 {
-    EFI_STATUS      Status;
-    UINT32          Attributes;
-    UINTN           DataSize;
-    UINTN           NewEFIDebug;
+	EFI_STATUS Status;
+	UINT32 Attributes;
+	UINTN DataSize;
+	UINTN NewEFIDebug;
 
-    DataSize = sizeof(EFIDebug);
-    Status = uefi_call_wrapper(RT->GetVariable, 5, L"EFIDebug", &EfiGlobalVariable, &Attributes, &DataSize, &NewEFIDebug);
-    if (!EFI_ERROR(Status)) {
-        EFIDebug = NewEFIDebug;
-    }
+	DataSize = sizeof(EFIDebug);
+	Status = uefi_call_wrapper(RT->GetVariable, 5, L"EFIDebug",
+				   &EfiGlobalVariable, &Attributes, &DataSize,
+				   &NewEFIDebug);
+	if (!EFI_ERROR(Status)) {
+		EFIDebug = NewEFIDebug;
+	}
 }
 
 /*
@@ -189,25 +179,24 @@ EFIDebugVariable (
 
 void *memset(void *s, int c, __SIZE_TYPE__ n)
 {
-    unsigned char *p = s;
+	unsigned char *p = s;
 
-    while (n--)
-        *p++ = c;
+	while (n--)
+		*p++ = c;
 
-    return s;
+	return s;
 }
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n)
 {
-    const unsigned char *q = src;
-    unsigned char *p = dest;
+	const unsigned char *q = src;
+	unsigned char *p = dest;
 
-    while (n--)
-        *p++ = *q++;
+	while (n--)
+		*p++ = *q++;
 
-    return dest;
+	return dest;
 }
-
 
 /**
  * @brief 将数据从src搬运到dst，并能正确处理地址重叠的问题
@@ -219,7 +208,7 @@ void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n)
  */
 void *memmove(void *dst, const void *src, uint64_t size)
 {
-    const char *_src = src;
+	const char *_src = src;
 	char *_dst = dst;
 
 	if (!size)
@@ -239,4 +228,3 @@ void *memmove(void *dst, const void *src, uint64_t size)
 
 	return dst;
 }
-
