@@ -29,6 +29,10 @@
         "random": "c",
         "bitsperlong.h": "c",
         "div64.h": "c",
-        "posix_types.h": "c"
+        "posix_types.h": "c",
+        "kernel.h": "c",
+        "sysinfo.h": "c",
+        "const.h": "c",
+        "string.h": "c"
     }
 }

@@ -115,6 +115,8 @@ typedef struct {
 	const void *optional_data;
 } efi_load_option_unpacked_t;
 
+typedef EFI_LOADED_IMAGE efi_loaded_image_t;
+
 /* The macro below handles dispatching via the thunk if needed */
 
 #define efi_fn_call(inst, func, ...) ((inst)->func(__VA_ARGS__))
@@ -124,3 +126,48 @@ typedef struct {
 		__typeof__(inst) __inst = (inst);                 \
 		efi_fn_call(__inst, func, __inst, ##__VA_ARGS__); \
 	})
+
+/*
+ * This function handles the architcture specific differences between arm and
+ * arm64 regarding where the kernel image must be loaded and any memory that
+ * must be reserved. On failure it is required to free all
+ * all allocations it has made.
+ */
+efi_status_t
+handle_kernel_image(unsigned long *image_addr, unsigned long *image_size,
+		    unsigned long *reserve_addr, unsigned long *reserve_size,
+		    efi_loaded_image_t *image, efi_handle_t image_handle);
+
+char *skip_spaces(const char *str);
+long simple_strtol(const char *cp, char **endp, unsigned int base);
+unsigned int atou(const char *s);
+/**
+ * simple_strtoull - convert a string to an unsigned long long
+ * @cp: The start of the string
+ * @endp: A pointer to the end of the parsed string will be placed here
+ * @base: The number base to use
+ */
+unsigned long long simple_strtoull(const char *cp, char **endp,
+				   unsigned int base);
+long simple_strtol(const char *cp, char **endp, unsigned int base);
+size_t strnlen(const char *s, size_t maxlen);
+/**
+ * strlen - Find the length of a string
+ * @s: The string to be sized
+ */
+size_t strlen(const char *s);
+int strncmp(const char *cs, const char *ct, size_t count);
+int strcmp(const char *str1, const char *str2);
+char *next_arg(char *args, char **param, char **val);
+
+/**
+ * strstarts - does @str start with @prefix?
+ * @str: string to examine
+ * @prefix: prefix to look for.
+ */
+static inline bool strstarts(const char *str, const char *prefix)
+{
+	return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
+efi_status_t efi_parse_options(char const *cmdline);

@@ -19,28 +19,29 @@ EFI_STATUS efi_handle_cmdline(EFI_LOADED_IMAGE *image, char **cmdline_ptr)
 		return EFI_OUT_OF_RESOURCES;
 	}
 
-// 	if (IS_ENABLED(CONFIG_CMDLINE_EXTEND) ||
-// 	    IS_ENABLED(CONFIG_CMDLINE_FORCE) ||
-// 	    cmdline_size == 0) {
-// 		status = efi_parse_options(CONFIG_CMDLINE);
-// 		if (status != EFI_SUCCESS) {
-// 			efi_err("Failed to parse options\n");
-// 			goto fail_free_cmdline;
-// 		}
-// 	}
+	// 	if (IS_ENABLED(CONFIG_CMDLINE_EXTEND) ||
+	// 	    IS_ENABLED(CONFIG_CMDLINE_FORCE) ||
+	// 	    cmdline_size == 0) {
+	// 		status = efi_parse_options(CONFIG_CMDLINE);
+	// 		if (status != EFI_SUCCESS) {
+	// 			efi_err("Failed to parse options\n");
+	// 			goto fail_free_cmdline;
+	// 		}
+	// 	}
 
-// 	if (!IS_ENABLED(CONFIG_CMDLINE_FORCE) && cmdline_size > 0) {
-// 		status = efi_parse_options(cmdline);
-// 		if (status != EFI_SUCCESS) {
-// 			efi_err("Failed to parse options\n");
-// 			goto fail_free_cmdline;
-// 		}
-// 	}
+	// if (!IS_ENABLED(CONFIG_CMDLINE_FORCE) && cmdline_size > 0) {
+	if (cmdline_size > 0) {
+		status = efi_parse_options(cmdline);
+		if (status != EFI_SUCCESS) {
+			efi_err("Failed to parse options\n");
+			goto fail_free_cmdline;
+		}
+	}
 
-// 	*cmdline_ptr = cmdline;
-// 	return EFI_SUCCESS;
+	*cmdline_ptr = cmdline;
+	return EFI_SUCCESS;
 
-// fail_free_cmdline:
-// 	efi_bs_call(free_pool, cmdline_ptr);
-// 	return status;
+fail_free_cmdline:
+	efi_bs_call(FreePool, cmdline_ptr);
+	return status;
 }

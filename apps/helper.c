@@ -4,6 +4,16 @@
 #include <lib.h>
 #include <dragonstub/dragonstub.h>
 
+bool efi_nochunk;
+bool efi_nokaslr = true;
+// bool efi_nokaslr = !IS_ENABLED(CONFIG_RANDOMIZE_BASE);
+bool efi_novamap;
+
+static bool efi_noinitrd;
+static bool efi_nosoftreserve;
+static bool efi_disable_pci_dma = false;
+// static bool efi_disable_pci_dma = IS_ENABLED(CONFIG_EFI_DISABLE_PCI_DMA);
+
 enum efistub_event {
 	EFISTUB_EVT_INITRD,
 	EFISTUB_EVT_LOAD_OPTIONS,
@@ -199,4 +209,109 @@ char *efi_convert_cmdline(EFI_LOADED_IMAGE *image, int *cmd_line_len)
 
 	*cmd_line_len = options_bytes;
 	return (char *)cmdline_addr;
+}
+
+/**
+ *	parse_option_str - Parse a string and check an option is set or not
+ *	@str: String to be parsed
+ *	@option: option name
+ *
+ *	This function parses a string containing a comma-separated list of
+ *	strings like a=b,c.
+ *
+ *	Return true if there's such option in the string, or return false.
+ */
+bool parse_option_str(const char *str, const char *option)
+{
+	while (*str) {
+		if (!strncmp(str, option, strlen(option))) {
+			str += strlen(option);
+			if (!*str || *str == ',')
+				return true;
+		}
+
+		while (*str && *str != ',')
+			str++;
+
+		if (*str == ',')
+			str++;
+	}
+
+	return false;
+}
+
+/**
+ * efi_parse_options() - Parse EFI command line options
+ * @cmdline:	kernel command line
+ *
+ * Parse the ASCII string @cmdline for EFI options, denoted by the efi=
+ * option, e.g. efi=nochunk.
+ *
+ * It should be noted that efi= is parsed in two very different
+ * environments, first in the early boot environment of the EFI boot
+ * stub, and subsequently during the kernel boot.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_parse_options(char const *cmdline)
+{
+	size_t len;
+	efi_status_t status;
+	char *str, *buf;
+
+	if (!cmdline)
+		return EFI_SUCCESS;
+
+	len = strnlen(cmdline, COMMAND_LINE_SIZE - 1) + 1;
+	status = efi_bs_call(AllocatePool, EfiLoaderData, len, (void **)&buf);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	memcpy(buf, cmdline, len - 1);
+	buf[len - 1] = '\0';
+	str = skip_spaces(buf);
+
+	while (*str) {
+		char *param, *val;
+
+		str = next_arg(str, &param, &val);
+		if (!val && !strcmp(param, "--"))
+			break;
+
+		if (!strcmp(param, "nokaslr")) {
+			efi_nokaslr = true;
+		} else if (!strcmp(param, "quiet")) {
+			// efi_loglevel = CONSOLE_LOGLEVEL_QUIET;
+		} else if (!strcmp(param, "noinitrd")) {
+			efi_noinitrd = true;
+		}
+#ifdef CONFIG_X86_64
+		else if (IS_ENABLED(CONFIG_X86_64) &&
+			 !strcmp(param, "no5lvl")) {
+			efi_no5lvl = true;
+		}
+#endif
+		else if (!strcmp(param, "efi") && val) {
+			efi_nochunk = parse_option_str(val, "nochunk");
+			efi_novamap |= parse_option_str(val, "novamap");
+
+			// efi_nosoftreserve =
+			// 	IS_ENABLED(CONFIG_EFI_SOFT_RESERVE) &&
+			// 	parse_option_str(val, "nosoftreserve");
+			efi_nosoftreserve = false;
+
+			if (parse_option_str(val, "disable_early_pci_dma"))
+				efi_disable_pci_dma = true;
+			if (parse_option_str(val, "no_disable_early_pci_dma"))
+				efi_disable_pci_dma = false;
+			if (parse_option_str(val, "debug")) {
+				// efi_loglevel = CONSOLE_LOGLEVEL_DEBUG;
+			}
+		} else if (!strcmp(param, "video") && val &&
+			   strstarts(val, "efifb:")) {
+			// efi_parse_option_graphics(val + strlen("efifb:"));
+		}
+	}
+	efi_bs_call(FreePool, buf);
+	return EFI_SUCCESS;
 }

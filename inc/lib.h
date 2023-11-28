@@ -95,3 +95,5 @@ void *memset(void *s, int c, __SIZE_TYPE__ n);
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
 void *memmove(void *dst, const void *src, uint64_t size);
+
+size_t strnlen(const char *s, size_t maxlen);
