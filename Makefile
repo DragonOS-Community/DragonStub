@@ -34,6 +34,9 @@
 #    SUCH DAMAGE.
 #
 
+include env.mk
+
+
 export VERSION = 3.0.17
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -46,6 +49,18 @@ include $(SRCDIR)/Make.defaults
 SUBDIRS = lib gnuefi inc apps
 
 all:	check_gcc $(SUBDIRS)
+ifeq ($(ARCH), riscv64)
+	@mkdir -p output
+	cp riscv64/apps/dragon_stub.efi ./output/dragon_stub-riscv64.efi
+endif
+
+.PHONY:	
+run: 
+	@$(MAKE) all -j $(shell nproc)
+	@$(MAKE) qemu
+
+qemu:
+	cd tools && ./run-qemu.sh && cd ..
 
 gnuefi: lib
 apps:	gnuefi

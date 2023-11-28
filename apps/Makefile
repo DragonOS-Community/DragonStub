@@ -85,7 +85,21 @@ LDFLAGS		+= --defsym=EFI_SUBSYSTEM=$(SUBSYSTEM)
 
 endif
 
-TARGETS = $(TARGET_APPS) $(TARGET_BSDRIVERS) $(TARGET_RTDRIVERS)
+
+
+DRAGON_STUB_FILES:= dragon_stub-main.c
+# 把*.c的列表转换为*.o的列表
+DRAGON_STUB_OBJS := $(patsubst %.c,%.o,$(DRAGON_STUB_FILES))
+
+dragon_stub: $(DRAGON_STUB_OBJS)
+	
+	$(LD) $(LDFLAGS) $^ -o dragon_stub.so $(LOADLIBES)
+	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .rodata -j .rel \
+		    -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+		    -j .areloc -j .reloc $(FORMAT) dragon_stub.so dragon_stub.efi
+
+
+TARGETS = dragon_stub $(TARGET_BSDRIVERS) $(TARGET_RTDRIVERS) 
 
 all:	$(TARGETS)
 
