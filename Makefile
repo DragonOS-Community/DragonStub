@@ -48,7 +48,13 @@ include $(SRCDIR)/Make.defaults
 
 SUBDIRS = lib gnuefi inc apps
 
-all:	check_gcc $(SUBDIRS)
+all_stagge2: check_gcc $(SUBDIRS)
+
+ensure_dirs:
+	@mkdir -p $(OBJDIR)/apps/lib
+	@$(MAKE) all_stagge2
+
+all: ensure_dirs
 ifeq ($(ARCH), riscv64)
 	@mkdir -p output
 	cp riscv64/apps/dragon_stub.efi ./output/dragon_stub-riscv64.efi
@@ -91,6 +97,7 @@ mkvars:
 	@echo RANLIB=$(RANLIB)
 	@echo SRCDIR=$(SRCDIR)
 	@echo TOPDIR=$(TOPDIR)
+	@echo OBJDIR=$(OBJDIR)
 
 $(SUBDIRS):
 	mkdir -p $(OBJDIR)/$@
