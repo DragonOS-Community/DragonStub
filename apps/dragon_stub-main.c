@@ -46,6 +46,12 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 	else
 		efi_info("Command line: %s\n", cmdline_ptr);
 
+	struct payload_info payload;
+	status = find_payload(image_handle, loaded_image, &payload);
+	if (EFI_ERROR(status)) {
+		efi_err("Could not find payload, efi error code: %d\n", status);
+		return status;
+	}
 	efi_info("Booting DragonOS kernel...\n");
 
 	efi_todo("Boot DragonOS kernel");
@@ -68,4 +74,9 @@ void print_dragonstub_banner(void)
 		"|____/|_|  \\__,_|\\__, |\\___/|_| |_|____/ \\__|\\__,_|_.__/ \n");
 	efi_printk(
 		"                 |___/                                   \n");
+
+	efi_printk("\n@Copyright 2022-2023 DragonOS Community.\n");
+	efi_printk(
+		"\nDragonStub official repo: https://github.com/DragonOS-Community/DragonStub\n");
+	efi_printk("\nDragonStub is licensed under GPLv2\n\n");
 }

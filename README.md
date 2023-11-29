@@ -16,10 +16,24 @@ sudo apt install -y gcc-riscv64-linux-gnu
 ARCH=riscv64 make -j $(nproc)
 ```
 
-## Run
+build with payload:
 
 ```bash
-make run
+ARCH=riscv64 PAYLOAD_ELF=path/to/payload.elf make -j $(nproc)
+```
+
+## Run
+
+Dry run:
+
+```bash
+ARCH=riscv64 make run
+```
+
+Run with payload:
+
+```bash
+ARCH=riscv64 PAYLOAD_ELF=path/to/payload.elf make run
 ```
 
 ## Maintainer
@@ -33,4 +47,4 @@ DragonStub is licensed under the GPLv2 License. See [LICENSE](LICENSE) for detai
 ## References
 
 - GNU-EFI: DragonStub built with gnu-efi
-- Linux-EFIStub: In Linux kernel source tree: firmware/efi/libstub
+- Linux-EFIStub: In Linux kernel source tree: drivers/firmware/efi/libstub

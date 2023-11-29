@@ -96,14 +96,30 @@ endif
 
 # 把*.c的列表转换为*.o的列表
 DRAGON_STUB_OBJS := $(patsubst %.c,%.o,$(DRAGON_STUB_FILES))
+PAYLOAD_ELF_OBJ=
+# 将'/'替换为'_'
+# 将'.'替换为'_'
+PAYLOAD_PATH_REPLACEMENT=_binary_$(shell echo "$(PAYLOAD_ELF)" | sed 's/\//_/g' | sed 's/\./_/g')
 
 
 dragon_stub: $(DRAGON_STUB_OBJS)
 	@echo "Building dragon_stub..."
 
-
-	
+ifeq ($(PAYLOAD_ELF),)
+	@echo "PAYLOAD_ELF is not set, not merging..."
 	$(LD) $(LDFLAGS) $^ -o dragon_stub.so $(LOADLIBES)
+else
+# 把DragonStub和目标ELF合并
+	@echo "Merging DragonStub and $(PAYLOAD_ELF)..."
+	$(LD) -r -b binary $(PAYLOAD_ELF) -o payload.o.stage1 --no-relax
+	$(OBJCOPY) --redefine-sym $(PAYLOAD_PATH_REPLACEMENT)_start=_binary_payload_start \
+		   --redefine-sym $(PAYLOAD_PATH_REPLACEMENT)_end=_binary_payload_end \
+		   --redefine-sym $(PAYLOAD_PATH_REPLACEMENT)_size=_binary_payload_size \
+		   payload.o.stage1 payload.o
+	$(LD) $(LDFLAGS) --no-relax $^ payload.o -o dragon_stub.so $(LOADLIBES)
+	
+endif
+	
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .rodata -j .rel \
 		    -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
 		    -j .areloc -j .reloc $(FORMAT) dragon_stub.so dragon_stub.efi

@@ -171,3 +171,19 @@ static inline bool strstarts(const char *str, const char *prefix)
 }
 
 efi_status_t efi_parse_options(char const *cmdline);
+
+/// @brief 要加载的内核负载信息
+struct payload_info {
+	/// @brief 负载起始地址
+	u64 payload_addr;
+	/// @brief 负载大小
+	u64 payload_size;
+};
+
+/// @brief 寻找要加载的内核负载
+/// @param handle efi_handle
+/// @param image efi_loaded_image_t
+/// @param ret_info 返回的负载信息
+/// @return
+efi_status_t find_payload(efi_handle_t handle, efi_loaded_image_t *loaded_image,
+			  struct payload_info *ret_info);
