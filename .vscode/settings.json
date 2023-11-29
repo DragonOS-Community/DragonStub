@@ -33,6 +33,8 @@
         "kernel.h": "c",
         "sysinfo.h": "c",
         "const.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "elf.h": "c",
+        "stddef.h": "c"
     }
 }
