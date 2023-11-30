@@ -89,6 +89,12 @@ endif
 
 DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c
 DRAGON_STUB_FILES += lib/vsprintf.c lib/hexdump.c lib/ctype.c lib/cmdline.c lib/string.c
+__LIBFDT_DIR=lib/libfdt
+DRAGON_STUB_FILES += $(__LIBFDT_DIR)/fdt_addresses.c $(__LIBFDT_DIR)/fdt_empty_tree.c $(__LIBFDT_DIR)/fdt_overlay.c $(__LIBFDT_DIR)/fdt_ro.c \
+						$(__LIBFDT_DIR)/fdt_rw.c $(__LIBFDT_DIR)/fdt_strerror.c $(__LIBFDT_DIR)/fdt_sw.c $(__LIBFDT_DIR)/fdt_wip.c \
+						$(__LIBFDT_DIR)/fdt.c
+
+INCDIR += -I$(TOPDIR)/apps/lib/libfdt
 
 ifeq ($(ARCH), riscv64)
 	DRAGON_STUB_FILES += riscv-stub.c

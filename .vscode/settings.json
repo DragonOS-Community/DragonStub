@@ -35,6 +35,9 @@
         "const.h": "c",
         "string.h": "c",
         "elf.h": "c",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "stdbool.h": "c",
+        "libfdt_env.h": "c",
+        "libfdt_internal.h": "c"
     }
 }

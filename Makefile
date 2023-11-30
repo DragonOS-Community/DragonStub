@@ -52,6 +52,7 @@ all_stagge2: check_gcc $(SUBDIRS)
 
 ensure_dirs:
 	@mkdir -p $(OBJDIR)/apps/lib
+	@mkdir -p $(OBJDIR)/apps/lib/libfdt
 	@$(MAKE) all_stagge2
 
 all: ensure_dirs
@@ -105,6 +106,7 @@ $(SUBDIRS):
 
 clean:
 	rm -f *~
+	rm -f $(shell find . -name "*.o")
 	@set -e ; for d in $(SUBDIRS); do \
 		if [ -d $(OBJDIR)/$$d ]; then \
 			$(MAKE) -C $(OBJDIR)/$$d -f $(SRCDIR)/$$d/Makefile SRCDIR=$(SRCDIR)/$$d clean; \

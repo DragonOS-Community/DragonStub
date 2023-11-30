@@ -53,7 +53,7 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 		return status;
 	}
 	efi_info("Booting DragonOS kernel...\n");
-
+	efi_stub_common(image_handle, &payload, cmdline_ptr);
 	efi_todo("Boot DragonOS kernel");
 
 	return EFI_SUCCESS;

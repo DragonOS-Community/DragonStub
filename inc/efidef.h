@@ -90,7 +90,6 @@ typedef struct {
     UINT8   Data4[8]; 
 } EFI_GUID;
 
-
 //
 // Time
 //
