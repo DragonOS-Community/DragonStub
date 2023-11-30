@@ -126,3 +126,41 @@ size_t strnlen(const char *s, size_t maxlen)
 
 	return (es - s);
 }
+
+#define __ALIGN (sizeof(size_t))
+#define ONES ((size_t)-1 / UCHAR_MAX)
+#define HIGHS (ONES * (UCHAR_MAX / 2 + 1))
+#define HASZERO(x) ((x)-ONES & ~(x)&HIGHS)
+
+char *__strchrnul(const char *s, int c)
+{
+	c = (unsigned char)c;
+	if (!c)
+		return (char *)s + strlen(s);
+
+#ifdef __GNUC__
+	typedef size_t __attribute__((__may_alias__)) word;
+	const word *w;
+	for (; (uintptr_t)s % __ALIGN; s++)
+		if (!*s || *(unsigned char *)s == c)
+			return (char *)s;
+	size_t k = ONES * c;
+	for (w = (void *)s; !HASZERO(*w) && !HASZERO(*w ^ k); w++)
+		;
+	s = (void *)w;
+#endif
+	for (; *s && *(unsigned char *)s != c; s++)
+		;
+	return (char *)s;
+}
+
+char *strrchr(const char *s, int c)
+{
+	return memrchr(s, c, strlen(s) + 1);
+}
+
+char *strchr(const char *s, int c)
+{
+	char *r = __strchrnul(s, c);
+	return *(unsigned char *)r == (unsigned char)c ? r : 0;
+}

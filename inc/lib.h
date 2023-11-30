@@ -95,5 +95,8 @@ void *memset(void *s, int c, __SIZE_TYPE__ n);
 
 void *memcpy(void *dest, const void *src, __SIZE_TYPE__ n);
 void *memmove(void *dst, const void *src, uint64_t size);
-
+int memcmp(const void *vl, const void *vr, size_t n);
+void *memchr(const void *src, int c, size_t n);
+void *memrchr(const void *m, int c, size_t n);
 size_t strnlen(const char *s, size_t maxlen);
+char *strrchr(const char *s, int c);

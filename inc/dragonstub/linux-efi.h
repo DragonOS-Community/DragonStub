@@ -7,7 +7,10 @@
 #include "riscv64.h"
 #endif
 
+#define efi_table_hdr_t EFI_TABLE_HEADER
 #define efi_guid_t EFI_GUID
+#define efi_runtime_services_t EFI_RUNTIME_SERVICES
+#define efi_boot_services_t EFI_BOOT_SERVICES
 
 #define MAKE_EFI_GUID(a, b, c, d...)       \
 	(efi_guid_t)                       \
@@ -200,6 +203,10 @@
 #define EFI_CC_BLOB_GUID                                                  \
 	MAKE_EFI_GUID(0x067b1f5f, 0xcf26, 0x44c5, 0x85, 0x54, 0x93, 0xd7, \
 		      0x77, 0x91, 0x2d, 0x42)
+
+#define RISCV_EFI_BOOT_PROTOCOL_GUID                                      \
+	MAKE_EFI_GUID(0xccd15fec, 0x6f73, 0x4eec, 0x83, 0x95, 0x3e, 0x69, \
+		      0xe4, 0xb9, 0x40, 0xbf)
 
 #if defined(CONFIG_X86_64)
 #define __efiapi __attribute__((ms_abi))

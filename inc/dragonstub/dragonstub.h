@@ -10,6 +10,7 @@
 #include <dragonstub/linux/hex.h>
 #include "types.h"
 #include "linux/div64.h"
+#include "limits.h"
 
 /// @brief
 /// @param image
@@ -150,6 +151,9 @@ unsigned int atou(const char *s);
 unsigned long long simple_strtoull(const char *cp, char **endp,
 				   unsigned int base);
 long simple_strtol(const char *cp, char **endp, unsigned int base);
+
+#define strtoul(cp, endp, base) simple_strtoull(cp, endp, base)
+
 size_t strnlen(const char *s, size_t maxlen);
 /**
  * strlen - Find the length of a string
@@ -158,6 +162,7 @@ size_t strnlen(const char *s, size_t maxlen);
 size_t strlen(const char *s);
 int strncmp(const char *cs, const char *ct, size_t count);
 int strcmp(const char *str1, const char *str2);
+char *strchr(const char *s, int c);
 char *next_arg(char *args, char **param, char **val);
 
 /**
@@ -187,3 +192,29 @@ struct payload_info {
 /// @return
 efi_status_t find_payload(efi_handle_t handle, efi_loaded_image_t *loaded_image,
 			  struct payload_info *ret_info);
+
+/* shared entrypoint between the normal stub and the zboot stub */
+efi_status_t efi_stub_common(efi_handle_t handle,
+			     struct payload_info *payload_info,
+			     char *cmdline_ptr);
+
+efi_status_t check_platform_features(void);
+void *get_efi_config_table(efi_guid_t guid);
+typedef EFI_CONFIGURATION_TABLE efi_config_table_t;
+
+static inline int efi_guidcmp(efi_guid_t left, efi_guid_t right)
+{
+	return memcmp(&left, &right, sizeof(efi_guid_t));
+}
+
+static inline char *efi_guid_to_str(efi_guid_t *guid, char *out)
+{
+	snprintf(out, 1024, "%pUl", &guid->Data1);
+	return out;
+}
+
+static inline void print_efi_guid(efi_guid_t *guid)
+{
+	efi_info("GUID: data1: %p data2: %p data3: %p data4: %p\n", guid->Data1,
+		 guid->Data2, guid->Data3, guid->Data4);
+}

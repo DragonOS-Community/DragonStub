@@ -315,3 +315,25 @@ efi_status_t efi_parse_options(char const *cmdline)
 	efi_bs_call(FreePool, buf);
 	return EFI_SUCCESS;
 }
+
+/**
+ * get_efi_config_table() - retrieve UEFI configuration table
+ * @guid:	GUID of the configuration table to be retrieved
+ * Return:	pointer to the configuration table or NULL
+ */
+void *get_efi_config_table(efi_guid_t guid)
+{
+	efi_config_table_t *tables = efi_table_attr(ST, ConfigurationTable);
+	int nr_tables = efi_table_attr(ST, NumberOfTableEntries);
+	int i;
+
+	for (i = 0; i < nr_tables; i++) {
+		efi_config_table_t *t = (void *)tables;
+		// print_efi_guid(&t->VendorGuid);
+		if (efi_guidcmp(t->VendorGuid, guid) == 0)
+			return efi_table_attr(t, VendorTable);
+
+		tables++;
+	}
+	return NULL;
+}

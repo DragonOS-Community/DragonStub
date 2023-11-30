@@ -138,3 +138,39 @@ efi_status_t find_payload(efi_handle_t handle, efi_loaded_image_t *loaded_image,
     *ret_info = info;
     return EFI_SUCCESS;
 }
+
+
+efi_status_t efi_stub_common(efi_handle_t handle,
+			     struct payload_info* payload_info,
+			     char *cmdline_ptr)
+{
+	struct screen_info *si;
+	efi_status_t status;
+
+	status = check_platform_features();
+	if (status != EFI_SUCCESS)
+		return status;
+
+	// si = setup_graphics();
+
+	// efi_retrieve_tpm2_eventlog();
+
+	// /* Ask the firmware to clear memory on unclean shutdown */
+	// efi_enable_reset_attack_mitigation();
+
+	// efi_load_initrd(image, ULONG_MAX, efi_get_max_initrd_addr(image_addr),
+	// 		NULL);
+
+	// efi_random_get_seed();
+
+	// /* force efi_novamap if SetVirtualAddressMap() is unsupported */
+	// efi_novamap |= !(get_supported_rt_services() &
+	// 		 EFI_RT_SUPPORTED_SET_VIRTUAL_ADDRESS_MAP);
+
+	// install_memreserve_table();
+
+	// status = efi_boot_kernel(handle, image, image_addr, cmdline_ptr);
+
+	// free_screen_info(si);
+	return status;
+}

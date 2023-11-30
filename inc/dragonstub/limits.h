@@ -2,6 +2,13 @@
 #ifndef __VDSO_LIMITS_H
 #define __VDSO_LIMITS_H
 
+
+#define CHAR_BIT 8
+#define SCHAR_MIN (-128)
+#define SCHAR_MAX 127
+#define UCHAR_MAX 255
+
+#define MB_LEN_MAX 4
 #define USHRT_MAX	((unsigned short)~0U)
 #define SHRT_MAX	((short)(USHRT_MAX >> 1))
 #define SHRT_MIN	((short)(-SHRT_MAX - 1))

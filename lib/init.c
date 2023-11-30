@@ -15,6 +15,7 @@ Revision History
 --*/
 
 #include "lib.h"
+#include <dragonstub/limits.h>
 
 VOID EFIDebugVariable(VOID);
 
@@ -227,4 +228,44 @@ void *memmove(void *dst, const void *src, uint64_t size)
 		*--_dst = *--_src;
 
 	return dst;
+}
+
+#define SS (sizeof(size_t))
+#define __ALIGN (sizeof(size_t)-1)
+#define ONES ((size_t)-1/UCHAR_MAX)
+#define HIGHS (ONES * (UCHAR_MAX/2+1))
+#define HASZERO(x) ((x)-ONES & ~(x) & HIGHS)
+
+void *memchr(const void *src, int c, size_t n)
+{
+	const unsigned char *s = src;
+	c = (unsigned char)c;
+#ifdef __GNUC__
+	for (; ((uintptr_t)s & __ALIGN) && n && *s != c; s++, n--);
+	if (n && *s != c) {
+		typedef size_t __attribute__((__may_alias__)) word;
+		const word *w;
+		size_t k = ONES * c;
+		for (w = (const void *)s; n>=SS && !HASZERO(*w^k); w++, n-=SS);
+		s = (const void *)w;
+	}
+#endif
+	for (; n && *s != c; s++, n--);
+	return n ? (void *)s : 0;
+}
+
+int memcmp(const void *vl, const void *vr, size_t n)
+{
+	const unsigned char *l = vl, *r = vr;
+	for (; n && *l == *r; n--, l++, r++)
+		;
+	return n ? *l - *r : 0;
+}
+
+void *memrchr(const void *m, int c, size_t n)
+{
+	const unsigned char *s = m;
+	c = (unsigned char)c;
+	while (n--) if (s[n]==c) return (void *)(s+n);
+	return 0;
 }
