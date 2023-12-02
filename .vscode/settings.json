@@ -38,6 +38,12 @@
         "stddef.h": "c",
         "stdbool.h": "c",
         "libfdt_env.h": "c",
-        "libfdt_internal.h": "c"
+        "libfdt_internal.h": "c",
+        "efiapi.h": "c",
+        "elfloader.h": "c",
+        "efidebug.h": "c",
+        "align.h": "c",
+        "math.h": "c",
+        "csr.h": "c"
     }
 }

@@ -87,7 +87,7 @@ endif
 
 
 
-DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c
+DRAGON_STUB_FILES:= dragon_stub-main.c stub.c helper.c fdt.c secureboot.c elf.c mem.c alignedmem.c random.c
 DRAGON_STUB_FILES += lib/vsprintf.c lib/hexdump.c lib/ctype.c lib/cmdline.c lib/string.c
 __LIBFDT_DIR=lib/libfdt
 DRAGON_STUB_FILES += $(__LIBFDT_DIR)/fdt_addresses.c $(__LIBFDT_DIR)/fdt_empty_tree.c $(__LIBFDT_DIR)/fdt_overlay.c $(__LIBFDT_DIR)/fdt_ro.c \
@@ -98,6 +98,7 @@ INCDIR += -I$(TOPDIR)/apps/lib/libfdt
 
 ifeq ($(ARCH), riscv64)
 	DRAGON_STUB_FILES += riscv-stub.c
+	INCDIR += -I$(TOPDIR)/inc/dragonstub/linux/arch/riscv
 endif
 
 # 把*.c的列表转换为*.o的列表
