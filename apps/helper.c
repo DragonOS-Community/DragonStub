@@ -7,7 +7,7 @@
 bool efi_nochunk;
 bool efi_nokaslr = true;
 // bool efi_nokaslr = !IS_ENABLED(CONFIG_RANDOMIZE_BASE);
-bool efi_novamap;
+bool efi_novamap = false;
 
 static bool efi_noinitrd;
 static bool efi_nosoftreserve;
@@ -336,4 +336,81 @@ void *get_efi_config_table(efi_guid_t guid)
 		tables++;
 	}
 	return NULL;
+}
+
+/**
+ * efi_exit_boot_services() - Exit boot services
+ * @handle:	handle of the exiting image
+ * @priv:	argument to be passed to @priv_func
+ * @priv_func:	function to process the memory map before exiting boot services
+ *
+ * Handle calling ExitBootServices according to the requirements set out by the
+ * spec.  Obtains the current memory map, and returns that info after calling
+ * ExitBootServices.  The client must specify a function to perform any
+ * processing of the memory map data prior to ExitBootServices.  A client
+ * specific structure may be passed to the function via priv.  The client
+ * function may be called multiple times.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_exit_boot_services(void *handle, void *priv,
+				    efi_exit_boot_map_processing priv_func)
+{
+	struct efi_boot_memmap *map;
+	efi_status_t status;
+
+	if (efi_disable_pci_dma) {
+		efi_todo("efi_exit_boot_services:: efi_disable_pci_dma: efi_pci_disable_bridge_busmaster");
+		// efi_pci_disable_bridge_busmaster();
+	}
+
+	status = efi_get_memory_map(&map, true);
+	if (status != EFI_SUCCESS)
+		return status;
+	efi_debug("before priv_func\n");
+	status = priv_func(map, priv);
+	if (status != EFI_SUCCESS) {
+		
+		efi_bs_call(FreePool, map);
+		return status;
+	}
+
+	efi_debug("before ExitBootServices, handle=%p, map_key=%p\n", handle, map->map_key);
+
+	status = efi_bs_call(ExitBootServices, handle, map->map_key);
+
+	efi_debug("after ExitBootServices, status: %d\n", status);
+
+	if (status == EFI_INVALID_PARAMETER) {
+		/*
+		 * The memory map changed between efi_get_memory_map() and
+		 * exit_boot_services().  Per the UEFI Spec v2.6, Section 6.4:
+		 * EFI_BOOT_SERVICES.ExitBootServices we need to get the
+		 * updated map, and try again.  The spec implies one retry
+		 * should be sufficent, which is confirmed against the EDK2
+		 * implementation.  Per the spec, we can only invoke
+		 * get_memory_map() and exit_boot_services() - we cannot alloc
+		 * so efi_get_memory_map() cannot be used, and we must reuse
+		 * the buffer.  For all practical purposes, the headroom in the
+		 * buffer should account for any changes in the map so the call
+		 * to get_memory_map() is expected to succeed here.
+		 */
+		map->map_size = map->buff_size;
+		status = efi_bs_call(GetMemoryMap, &map->map_size, &map->map,
+				     &map->map_key, &map->desc_size,
+				     &map->desc_ver);
+
+		/* exit_boot_services() was called, thus cannot free */
+		if (status != EFI_SUCCESS)
+			return status;
+
+		status = priv_func(map, priv);
+		/* exit_boot_services() was called, thus cannot free */
+		if (status != EFI_SUCCESS)
+			return status;
+
+		status = efi_bs_call(ExitBootServices, handle, map->map_key);
+	}
+
+	return status;
 }

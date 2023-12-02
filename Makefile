@@ -113,6 +113,9 @@ clean:
 		fi; \
 	done
 
+gdb:
+	gdb-multiarch -n -x tools/.gdbinit
+
 install:
 	@set -e ; for d in $(SUBDIRS); do \
 		mkdir -p $(OBJDIR)/$$d; \

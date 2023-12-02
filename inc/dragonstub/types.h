@@ -52,7 +52,7 @@ typedef u8 efi_bool_t;
 typedef u16 efi_char16_t; /* UNICODE character */
 typedef u64 efi_physical_addr_t;
 typedef void *efi_handle_t;
-
+typedef u64 phys_addr_t;
 typedef _Bool bool;
 
 enum { false = 0, true = 1 };

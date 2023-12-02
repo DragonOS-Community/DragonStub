@@ -2,6 +2,8 @@
 #include <efidef.h>
 #include "compiler_attributes.h"
 #include "types.h"
+#include <efiapi.h>
+#include <efierr.h>
 #include "linux/pfn.h"
 #if defined(CONFIG_riscv64)
 #include "riscv64.h"
@@ -11,6 +13,10 @@
 #define efi_guid_t EFI_GUID
 #define efi_runtime_services_t EFI_RUNTIME_SERVICES
 #define efi_boot_services_t EFI_BOOT_SERVICES
+#define efi_memory_desc_t EFI_MEMORY_DESCRIPTOR
+#define efi_capsule_header_t EFI_CAPSULE_HEADER
+#define efi_time_t EFI_TIME
+#define efi_time_cap_t EFI_TIME_CAPABILITIES
 
 #define MAKE_EFI_GUID(a, b, c, d...)       \
 	(efi_guid_t)                       \
@@ -204,6 +210,47 @@
 	MAKE_EFI_GUID(0x067b1f5f, 0xcf26, 0x44c5, 0x85, 0x54, 0x93, 0xd7, \
 		      0x77, 0x91, 0x2d, 0x42)
 
+/*
+ * This GUID is used to pass to the kernel proper the struct screen_info
+ * structure that was populated by the stub based on the GOP protocol instance
+ * associated with ConOut
+ */
+#define LINUX_EFI_SCREEN_INFO_TABLE_GUID                                  \
+	MAKE_EFI_GUID(0xe03fc20a, 0x85dc, 0x406e, 0xb9, 0x0e, 0x4a, 0xb5, \
+		      0x02, 0x37, 0x1d, 0x95)
+#define LINUX_EFI_ARM_CPU_STATE_TABLE_GUID                                \
+	MAKE_EFI_GUID(0xef79e4aa, 0x3c3d, 0x4989, 0xb9, 0x02, 0x07, 0xa9, \
+		      0x43, 0xe5, 0x50, 0xd2)
+#define LINUX_EFI_LOADER_ENTRY_GUID                                       \
+	MAKE_EFI_GUID(0x4a67b082, 0x0a4c, 0x41cf, 0xb6, 0xc7, 0x44, 0x0b, \
+		      0x29, 0xbb, 0x8c, 0x4f)
+#define LINUX_EFI_RANDOM_SEED_TABLE_GUID                                  \
+	MAKE_EFI_GUID(0x1ce1e5bc, 0x7ceb, 0x42f2, 0x81, 0xe5, 0x8a, 0xad, \
+		      0xf1, 0x80, 0xf5, 0x7b)
+#define LINUX_EFI_TPM_EVENT_LOG_GUID                                      \
+	MAKE_EFI_GUID(0xb7799cb0, 0xeca2, 0x4943, 0x96, 0x67, 0x1f, 0xae, \
+		      0x07, 0xb7, 0x47, 0xfa)
+#define LINUX_EFI_TPM_FINAL_LOG_GUID                                      \
+	MAKE_EFI_GUID(0x1e2ed096, 0x30e2, 0x4254, 0xbd, 0x89, 0x86, 0x3b, \
+		      0xbe, 0xf8, 0x23, 0x25)
+#define LINUX_EFI_MEMRESERVE_TABLE_GUID                                   \
+	MAKE_EFI_GUID(0x888eb0c6, 0x8ede, 0x4ff5, 0xa8, 0xf0, 0x9a, 0xee, \
+		      0x5c, 0xb9, 0x77, 0xc2)
+#define LINUX_EFI_INITRD_MEDIA_GUID                                       \
+	MAKE_EFI_GUID(0x5568e427, 0x68fc, 0x4f3d, 0xac, 0x74, 0xca, 0x55, \
+		      0x52, 0x31, 0xcc, 0x68)
+#define LINUX_EFI_MOK_VARIABLE_TABLE_GUID                                 \
+	MAKE_EFI_GUID(0xc451ed2b, 0x9694, 0x45d3, 0xba, 0xba, 0xed, 0x9f, \
+		      0x89, 0x88, 0xa3, 0x89)
+#define LINUX_EFI_COCO_SECRET_AREA_GUID                                   \
+	MAKE_EFI_GUID(0xadf956ad, 0xe98c, 0x484c, 0xae, 0x11, 0xb5, 0x1c, \
+		      0x7d, 0x33, 0x64, 0x47)
+#define LINUX_EFI_BOOT_MEMMAP_GUID                                        \
+	MAKE_EFI_GUID(0x800f683f, 0xd08b, 0x423a, 0xa2, 0x93, 0x96, 0x5c, \
+		      0x3c, 0x6f, 0xe2, 0xb4)
+#define LINUX_EFI_UNACCEPTED_MEM_TABLE_GUID                               \
+	MAKE_EFI_GUID(0xd5d1de3c, 0x105c, 0x44f9, 0x9e, 0xa9, 0xbc, 0xef, \
+		      0x98, 0x12, 0x00, 0x31)
 #define RISCV_EFI_BOOT_PROTOCOL_GUID                                      \
 	MAKE_EFI_GUID(0xccd15fec, 0x6f73, 0x4eec, 0x83, 0x95, 0x3e, 0x69, \
 		      0xe4, 0xb9, 0x40, 0xbf)
@@ -320,3 +367,136 @@ static inline void memrange_efi_to_native(u64 *addr, u64 *npages)
 	*npages = PFN_UP(*addr + (*npages << EFI_PAGE_SHIFT)) - PFN_DOWN(*addr);
 	*addr &= PAGE_MASK;
 }
+
+struct linux_efi_memreserve {
+	int size; // allocated size of the array
+	int count; // number of entries used
+	phys_addr_t next; // pa of next struct instance
+	struct {
+		phys_addr_t base;
+		phys_addr_t size;
+	} entry[];
+};
+
+#define EFI_MEMRESERVE_COUNT(size)                        \
+	(((size) - sizeof(struct linux_efi_memreserve)) / \
+	 sizeof_field(struct linux_efi_memreserve, entry[0]))
+
+enum efi_secureboot_mode {
+	efi_secureboot_mode_unset,
+	efi_secureboot_mode_unknown,
+	efi_secureboot_mode_disabled,
+	efi_secureboot_mode_enabled,
+};
+
+/// @brief 打印efi_secureboot_mode
+void print_efi_secureboot_mode(enum efi_secureboot_mode mode);
+
+typedef efi_status_t efi_get_time_t(efi_time_t *tm, efi_time_cap_t *tc);
+typedef efi_status_t efi_set_time_t(efi_time_t *tm);
+typedef efi_status_t efi_get_wakeup_time_t(efi_bool_t *enabled,
+					   efi_bool_t *pending, efi_time_t *tm);
+typedef efi_status_t efi_set_wakeup_time_t(efi_bool_t enabled, efi_time_t *tm);
+typedef efi_status_t efi_get_variable_t(efi_char16_t *name, efi_guid_t *vendor,
+					u32 *attr, unsigned long *data_size,
+					void *data);
+typedef efi_status_t efi_get_next_variable_t(unsigned long *name_size,
+					     efi_char16_t *name,
+					     efi_guid_t *vendor);
+typedef efi_status_t efi_set_variable_t(efi_char16_t *name, efi_guid_t *vendor,
+					u32 attr, unsigned long data_size,
+					void *data);
+typedef efi_status_t efi_get_next_high_mono_count_t(u32 *count);
+typedef void efi_reset_system_t(int reset_type, efi_status_t status,
+				unsigned long data_size, efi_char16_t *data);
+typedef efi_status_t efi_set_virtual_address_map_t(
+	unsigned long memory_map_size, unsigned long descriptor_size,
+	u32 descriptor_version, efi_memory_desc_t *virtual_map);
+typedef efi_status_t efi_query_variable_info_t(u32 attr, u64 *storage_space,
+					       u64 *remaining_space,
+					       u64 *max_variable_size);
+typedef efi_status_t efi_update_capsule_t(efi_capsule_header_t **capsules,
+					  unsigned long count,
+					  unsigned long sg_list);
+typedef efi_status_t efi_query_capsule_caps_t(efi_capsule_header_t **capsules,
+					      unsigned long count,
+					      u64 *max_size, int *reset_type);
+typedef efi_status_t efi_query_variable_store_t(u32 attributes,
+						unsigned long size,
+						bool nonblocking);
+
+static inline enum efi_secureboot_mode
+efi_get_secureboot_mode(efi_get_variable_t *get_var)
+{
+	u8 secboot, setupmode = 0;
+	efi_status_t status;
+	unsigned long size;
+
+	size = sizeof(secboot);
+	status = get_var(L"SecureBoot", &EFI_GLOBAL_VARIABLE_GUID, NULL, &size,
+			 &secboot);
+	if (status == EFI_NOT_FOUND)
+		return efi_secureboot_mode_disabled;
+	if (status != EFI_SUCCESS)
+		return efi_secureboot_mode_unknown;
+
+	size = sizeof(setupmode);
+	get_var(L"SetupMode", &EFI_GLOBAL_VARIABLE_GUID, NULL, &size,
+		&setupmode);
+	if (secboot == 0 || setupmode == 1)
+		return efi_secureboot_mode_disabled;
+	return efi_secureboot_mode_enabled;
+}
+
+struct efi_boot_memmap {
+	unsigned long map_size;
+	unsigned long desc_size;
+	u32 desc_ver;
+	unsigned long map_key;
+	unsigned long buff_size;
+	efi_memory_desc_t map[];
+};
+
+#define EFI_RT_SUPPORTED_GET_TIME 0x0001
+#define EFI_RT_SUPPORTED_SET_TIME 0x0002
+#define EFI_RT_SUPPORTED_GET_WAKEUP_TIME 0x0004
+#define EFI_RT_SUPPORTED_SET_WAKEUP_TIME 0x0008
+#define EFI_RT_SUPPORTED_GET_VARIABLE 0x0010
+#define EFI_RT_SUPPORTED_GET_NEXT_VARIABLE_NAME 0x0020
+#define EFI_RT_SUPPORTED_SET_VARIABLE 0x0040
+#define EFI_RT_SUPPORTED_SET_VIRTUAL_ADDRESS_MAP 0x0080
+#define EFI_RT_SUPPORTED_CONVERT_POINTER 0x0100
+#define EFI_RT_SUPPORTED_GET_NEXT_HIGH_MONOTONIC_COUNT 0x0200
+#define EFI_RT_SUPPORTED_RESET_SYSTEM 0x0400
+#define EFI_RT_SUPPORTED_UPDATE_CAPSULE 0x0800
+#define EFI_RT_SUPPORTED_QUERY_CAPSULE_CAPABILITIES 0x1000
+#define EFI_RT_SUPPORTED_QUERY_VARIABLE_INFO 0x2000
+
+#define EFI_RT_SUPPORTED_ALL 0x3fff
+
+#define EFI_RT_SUPPORTED_TIME_SERVICES 0x0003
+#define EFI_RT_SUPPORTED_WAKEUP_SERVICES 0x000c
+#define EFI_RT_SUPPORTED_VARIABLE_SERVICES 0x0070
+
+typedef struct {
+	u32 version;
+	u32 length;
+	u64 memory_protection_attribute;
+} efi_properties_table_t;
+
+#define EFI_PROPERTIES_TABLE_VERSION 0x00010000
+#define EFI_PROPERTIES_RUNTIME_MEMORY_PROTECTION_NON_EXECUTABLE_PE_DATA 0x1
+
+typedef struct {
+	u16 version;
+	u16 length;
+	u32 runtime_services_supported;
+} efi_rt_properties_table_t;
+
+#define EFI_RT_PROPERTIES_TABLE_VERSION 0x1
+
+#define EFI_INVALID_TABLE_ADDR (~0UL)
+
+// BIT0 implies that Runtime code includes the forward control flow guard
+// instruction, such as X86 CET-IBT or ARM BTI.
+#define EFI_MEMORY_ATTRIBUTES_FLAGS_RT_FORWARD_CONTROL_FLOW_GUARD 0x1

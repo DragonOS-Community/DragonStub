@@ -8,9 +8,11 @@
 #include "linux/ctype.h"
 #include <lib.h>
 #include <dragonstub/linux/hex.h>
+#include <dragonstub/minmax.h>
 #include "types.h"
 #include "linux/div64.h"
 #include "limits.h"
+#include "linux/sizes.h"
 
 /// @brief
 /// @param image
@@ -128,16 +130,16 @@ typedef EFI_LOADED_IMAGE efi_loaded_image_t;
 		efi_fn_call(__inst, func, __inst, ##__VA_ARGS__); \
 	})
 
-/*
- * This function handles the architcture specific differences between arm and
- * arm64 regarding where the kernel image must be loaded and any memory that
- * must be reserved. On failure it is required to free all
- * all allocations it has made.
- */
-efi_status_t
-handle_kernel_image(unsigned long *image_addr, unsigned long *image_size,
-		    unsigned long *reserve_addr, unsigned long *reserve_size,
-		    efi_loaded_image_t *image, efi_handle_t image_handle);
+#define efi_rt_call(func, ...) \
+	efi_fn_call(efi_table_attr(ST, RuntimeServices), func, ##__VA_ARGS__)
+
+#define get_efi_var(name, vendor, ...)                   \
+	efi_rt_call(GetVariable, (efi_char16_t *)(name), \
+		    (efi_guid_t *)(vendor), __VA_ARGS__)
+
+#define set_efi_var(name, vendor, ...)                   \
+	efi_rt_call(SetVariable, (efi_char16_t *)(name), \
+		    (efi_guid_t *)(vendor), __VA_ARGS__)
 
 char *skip_spaces(const char *str);
 long simple_strtol(const char *cp, char **endp, unsigned int base);
@@ -163,6 +165,13 @@ size_t strlen(const char *s);
 int strncmp(const char *cs, const char *ct, size_t count);
 int strcmp(const char *str1, const char *str2);
 char *strchr(const char *s, int c);
+/**
+ * strstr - Find the first substring in a %NUL terminated string
+ * @s1: The string to be searched
+ * @s2: The string to search for
+ */
+char *strstr(const char *s1, const char *s2);
+
 char *next_arg(char *args, char **param, char **val);
 
 /**
@@ -183,6 +192,12 @@ struct payload_info {
 	u64 payload_addr;
 	/// @brief 负载大小
 	u64 payload_size;
+	/// @brief 被加载到的物理地址
+	u64 loaded_paddr;
+	/// @brief 加载了多大
+	u64 loaded_size;
+	/// @brief 加载的内核的入口物理地址
+	u64 kernel_entry;
 };
 
 /// @brief 寻找要加载的内核负载
@@ -194,7 +209,11 @@ efi_status_t find_payload(efi_handle_t handle, efi_loaded_image_t *loaded_image,
 			  struct payload_info *ret_info);
 
 /* shared entrypoint between the normal stub and the zboot stub */
-efi_status_t efi_stub_common(efi_handle_t handle,
+efi_status_t efi_stub_common(efi_handle_t handle, efi_loaded_image_t *image,
+			     struct payload_info *payload_info,
+			     char *cmdline_ptr);
+
+efi_status_t efi_boot_kernel(efi_handle_t handle, efi_loaded_image_t *image,
 			     struct payload_info *payload_info,
 			     char *cmdline_ptr);
 
@@ -218,3 +237,209 @@ static inline void print_efi_guid(efi_guid_t *guid)
 	efi_info("GUID: data1: %p data2: %p data3: %p data4: %p\n", guid->Data1,
 		 guid->Data2, guid->Data3, guid->Data4);
 }
+
+/*
+ * efi_allocate_virtmap() - create a pool allocation for the virtmap
+ *
+ * Create an allocation that is of sufficient size to hold all the memory
+ * descriptors that will be passed to SetVirtualAddressMap() to inform the
+ * firmware about the virtual mapping that will be used under the OS to call
+ * into the firmware.
+ */
+efi_status_t efi_alloc_virtmap(efi_memory_desc_t **virtmap,
+			       unsigned long *desc_size, u32 *desc_ver);
+
+/*
+ * efi_get_virtmap() - create a virtual mapping for the EFI memory map
+ *
+ * This function populates the virt_addr fields of all memory region descriptors
+ * in @memory_map whose EFI_MEMORY_RUNTIME attribute is set. Those descriptors
+ * are also copied to @runtime_map, and their total count is returned in @count.
+ */
+void efi_get_virtmap(efi_memory_desc_t *memory_map, unsigned long map_size,
+		     unsigned long desc_size, efi_memory_desc_t *runtime_map,
+		     int *count);
+
+extern bool efi_nochunk;
+extern bool efi_nokaslr;
+extern bool efi_novamap;
+
+/*
+ * Determine whether we're in secure boot mode.
+ */
+enum efi_secureboot_mode efi_get_secureboot(void);
+void *get_fdt(unsigned long *fdt_size);
+
+/*
+ * Allow the platform to override the allocation granularity: this allows
+ * systems that have the capability to run with a larger page size to deal
+ * with the allocations for initrd and fdt more efficiently.
+ */
+#ifndef EFI_ALLOC_ALIGN
+#define EFI_ALLOC_ALIGN EFI_PAGE_SIZE
+#endif
+
+#ifndef EFI_ALLOC_LIMIT
+#define EFI_ALLOC_LIMIT ULONG_MAX
+#endif
+
+/*
+ * Allocation types for calls to boottime->allocate_pages.
+ */
+#define EFI_ALLOCATE_ANY_PAGES 0
+#define EFI_ALLOCATE_MAX_ADDRESS 1
+#define EFI_ALLOCATE_ADDRESS 2
+#define EFI_MAX_ALLOCATE_TYPE 3
+
+/**
+ * efi_allocate_pages_aligned() - Allocate memory pages
+ * @size:	minimum number of bytes to allocate
+ * @addr:	On return the address of the first allocated page. The first
+ *		allocated page has alignment EFI_ALLOC_ALIGN which is an
+ *		architecture dependent multiple of the page size.
+ * @max:	the address that the last allocated memory page shall not
+ *		exceed
+ * @align:	minimum alignment of the base of the allocation
+ *
+ * Allocate pages as EFI_LOADER_DATA. The allocated pages are aligned according
+ * to @align, which should be >= EFI_ALLOC_ALIGN. The last allocated page will
+ * not exceed the address given by @max.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_allocate_pages_aligned(unsigned long size, unsigned long *addr,
+					unsigned long max, unsigned long align,
+					int memory_type);
+
+/**
+ * efi_allocate_pages() - Allocate memory pages
+ * @size:	minimum number of bytes to allocate
+ * @addr:	On return the address of the first allocated page. The first
+ *		allocated page has alignment EFI_ALLOC_ALIGN which is an
+ *		architecture dependent multiple of the page size.
+ * @max:	the address that the last allocated memory page shall not
+ *		exceed
+ *
+ * Allocate pages as EFI_LOADER_DATA. The allocated pages are aligned according
+ * to EFI_ALLOC_ALIGN. The last allocated page will not exceed the address
+ * given by @max.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_allocate_pages(unsigned long size, unsigned long *addr,
+				unsigned long max);
+
+/**
+ * efi_allocate_pages_exact() - Allocate memory pages at a specific address
+ * @size:	minimum number of bytes to allocate
+ * @addr:	The address of the first allocated page.
+ *
+ * Allocate pages as EFI_LOADER_DATA. The allocated pages are aligned according
+ * to EFI_ALLOC_ALIGN.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_allocate_pages_exact(unsigned long size, unsigned long addr);
+
+/**
+ * efi_free() - free memory pages
+ * @size:	size of the memory area to free in bytes
+ * @addr:	start of the memory area to free (must be EFI_PAGE_SIZE
+ *		aligned)
+ *
+ * @size is rounded up to a multiple of EFI_ALLOC_ALIGN which is an
+ * architecture specific multiple of EFI_PAGE_SIZE. So this function should
+ * only be used to return pages allocated with efi_allocate_pages() or
+ * efi_low_alloc_above().
+ */
+void efi_free(unsigned long size, unsigned long addr);
+
+/*
+ * An efi_boot_memmap is used by efi_get_memory_map() to return the
+ * EFI memory map in a dynamically allocated buffer.
+ *
+ * The buffer allocated for the EFI memory map includes extra room for
+ * a minimum of EFI_MMAP_NR_SLACK_SLOTS additional EFI memory descriptors.
+ * This facilitates the reuse of the EFI memory map buffer when a second
+ * call to ExitBootServices() is needed because of intervening changes to
+ * the EFI memory map. Other related structures, e.g. x86 e820ext, need
+ * to factor in this headroom requirement as well.
+ */
+#define EFI_MMAP_NR_SLACK_SLOTS 8
+
+/**
+ * efi_get_memory_map() - get memory map
+ * @map:		pointer to memory map pointer to which to assign the
+ *			newly allocated memory map
+ * @install_cfg_tbl:	whether or not to install the boot memory map as a
+ *			configuration table
+ *
+ * Retrieve the UEFI memory map. The allocated memory leaves room for
+ * up to EFI_MMAP_NR_SLACK_SLOTS additional memory map entries.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_get_memory_map(struct efi_boot_memmap **map,
+				bool install_cfg_tbl);
+
+#ifdef CONFIG_64BIT
+#define MAX_FDT_SIZE (1UL << 21)
+#else
+#error "MAX_FDT_SIZE not yet defined for 32-bit"
+#endif
+
+/* Helper macros for the usual case of using simple C variables: */
+#ifndef fdt_setprop_inplace_var
+#define fdt_setprop_inplace_var(fdt, node_offset, name, var) \
+	fdt_setprop_inplace((fdt), (node_offset), (name), &(var), sizeof(var))
+#endif
+
+#ifndef fdt_setprop_var
+#define fdt_setprop_var(fdt, node_offset, name, var) \
+	fdt_setprop((fdt), (node_offset), (name), &(var), sizeof(var))
+#endif
+
+#define efi_get_handle_at(array, idx)     \
+	(efi_is_native() ? (array)[idx] : \
+			   (efi_handle_t)(unsigned long)((u32 *)(array))[idx])
+
+#define efi_get_handle_num(size) \
+	((size) / (efi_is_native() ? sizeof(efi_handle_t) : sizeof(u32)))
+
+/**
+ * efi_get_random_bytes() - fill a buffer with random bytes
+ * @size:	size of the buffer
+ * @out:	caller allocated buffer to receive the random bytes
+ *
+ * The call will fail if either the firmware does not implement the
+ * EFI_RNG_PROTOCOL or there are not enough random bytes available to fill
+ * the buffer.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_get_random_bytes(unsigned long size, u8 *out);
+
+typedef efi_status_t (*efi_exit_boot_map_processing)(
+	struct efi_boot_memmap *map, void *priv);
+
+/**
+ * efi_exit_boot_services() - Exit boot services
+ * @handle:	handle of the exiting image
+ * @priv:	argument to be passed to @priv_func
+ * @priv_func:	function to process the memory map before exiting boot services
+ *
+ * Handle calling ExitBootServices according to the requirements set out by the
+ * spec.  Obtains the current memory map, and returns that info after calling
+ * ExitBootServices.  The client must specify a function to perform any
+ * processing of the memory map data prior to ExitBootServices.  A client
+ * specific structure may be passed to the function via priv.  The client
+ * function may be called multiple times.
+ *
+ * Return:	status code
+ */
+efi_status_t efi_exit_boot_services(void *handle, void *priv,
+				    efi_exit_boot_map_processing priv_func);
+
+void __noreturn efi_enter_kernel(struct payload_info *payload_info,
+				 unsigned long fdt, unsigned long fdt_size);
+

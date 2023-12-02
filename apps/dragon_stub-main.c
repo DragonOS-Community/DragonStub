@@ -5,6 +5,26 @@
 
 void print_dragonstub_banner(void);
 
+static EFI_STATUS test_exit_bs(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab){
+	EFI_STATUS status;
+	struct efi_boot_memmap *map;
+
+	status = efi_get_memory_map(&map, false);
+	if (status != EFI_SUCCESS)
+		return status;
+	efi_debug("before priv_func\n");
+	
+	efi_debug("map->map_size: %d\n", map->map_size);
+	efi_debug("before ExitBootServices, handle=%p, map_key=%p\n", image_handle,
+		  map->map_key);
+
+	status = efi_bs_call(ExitBootServices, image_handle, map->map_key);
+
+	efi_debug("after ExitBootServices, status: %d\n", status);
+
+	while(1);
+}
+
 EFI_STATUS
 efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 {
@@ -18,7 +38,7 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 	print_dragonstub_banner();
 
 	efi_info("EFI env initialized\n");
-
+	
 	/*
 	 * Get a handle to the loaded image protocol.  This is used to get
 	 * information about the running image, such as size and the command
@@ -28,6 +48,7 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 				   &LoadedImageProtocol, (void **)&loaded_image,
 				   image_handle, NULL,
 				   EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+
 	if (EFI_ERROR(status)) {
 		efi_err("Could not open loaded image protocol: %d\n", status);
 		return status;
@@ -46,6 +67,8 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 	else
 		efi_info("Command line: %s\n", cmdline_ptr);
 
+	
+
 	struct payload_info payload;
 	status = find_payload(image_handle, loaded_image, &payload);
 	if (EFI_ERROR(status)) {
@@ -53,7 +76,7 @@ efi_main(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab)
 		return status;
 	}
 	efi_info("Booting DragonOS kernel...\n");
-	efi_stub_common(image_handle, &payload, cmdline_ptr);
+	efi_stub_common(image_handle, loaded_image, &payload, cmdline_ptr);
 	efi_todo("Boot DragonOS kernel");
 
 	return EFI_SUCCESS;
