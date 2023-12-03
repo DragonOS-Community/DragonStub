@@ -104,9 +104,8 @@ endif
 # 把*.c的列表转换为*.o的列表
 DRAGON_STUB_OBJS := $(patsubst %.c,%.o,$(DRAGON_STUB_FILES))
 PAYLOAD_ELF_OBJ=
-# 将'/'替换为'_'
-# 将'.'替换为'_'
-PAYLOAD_PATH_REPLACEMENT=_binary_$(shell echo "$(PAYLOAD_ELF)" | sed 's/\//_/g' | sed 's/\./_/g')
+# 将'/', '.', '-'替换为'_'
+PAYLOAD_PATH_REPLACEMENT=_binary_$(shell echo "$(PAYLOAD_ELF)" | sed 's/\//_/g' | sed 's/\./_/g' | sed 's/\-/_/g')
 
 
 dragon_stub: $(DRAGON_STUB_OBJS)
