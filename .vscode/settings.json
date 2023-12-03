@@ -44,6 +44,8 @@
         "efidebug.h": "c",
         "align.h": "c",
         "math.h": "c",
-        "csr.h": "c"
+        "csr.h": "c",
+        "efidevp.h": "c",
+        "efiprot.h": "c"
     }
 }

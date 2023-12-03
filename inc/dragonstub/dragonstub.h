@@ -443,3 +443,25 @@ efi_status_t efi_exit_boot_services(void *handle, void *priv,
 void __noreturn efi_enter_kernel(struct payload_info *payload_info,
 				 unsigned long fdt, unsigned long fdt_size);
 
+typedef union efi_memory_attribute_protocol efi_memory_attribute_protocol_t;
+
+union efi_memory_attribute_protocol {
+	struct {
+		efi_status_t(__efiapi *get_memory_attributes)(
+			efi_memory_attribute_protocol_t *, efi_physical_addr_t,
+			u64, u64 *);
+
+		efi_status_t(__efiapi *set_memory_attributes)(
+			efi_memory_attribute_protocol_t *, efi_physical_addr_t,
+			u64, u64);
+
+		efi_status_t(__efiapi *clear_memory_attributes)(
+			efi_memory_attribute_protocol_t *, efi_physical_addr_t,
+			u64, u64);
+	};
+	struct {
+		u32 get_memory_attributes;
+		u32 set_memory_attributes;
+		u32 clear_memory_attributes;
+	} mixed_mode;
+};
