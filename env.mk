@@ -13,3 +13,4 @@ else
 endif
 
 
+export TARGET_SYSROOT?=output/sysroot

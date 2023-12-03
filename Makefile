@@ -69,6 +69,15 @@ run:
 qemu:
 	cd tools && ./run-qemu.sh && cd ..
 
+install: all
+ifeq ($(ARCH), riscv64)
+	@mkdir -p $(TARGET_SYSROOT)/efi/boot/
+	cp ./output/dragon_stub-riscv64.efi $(TARGET_SYSROOT)/efi/boot/bootriscv64.efi
+else
+	@echo "Not support `make install` for $(ARCH)"
+	exit 1
+endif
+
 gnuefi: lib
 apps:	gnuefi
 
@@ -116,10 +125,10 @@ clean:
 gdb:
 	gdb-multiarch -n -x tools/.gdbinit
 
-install:
-	@set -e ; for d in $(SUBDIRS); do \
-		mkdir -p $(OBJDIR)/$$d; \
-		$(MAKE) -C $(OBJDIR)/$$d -f $(SRCDIR)/$$d/Makefile SRCDIR=$(SRCDIR)/$$d install; done
+#install:
+#	@set -e ; for d in $(SUBDIRS); do \
+#		mkdir -p $(OBJDIR)/$$d; \
+#		$(MAKE) -C $(OBJDIR)/$$d -f $(SRCDIR)/$$d/Makefile SRCDIR=$(SRCDIR)/$$d install; done
 
 .PHONY:	$(SUBDIRS) clean depend
 
