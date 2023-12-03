@@ -1,7 +1,12 @@
 #include "elf.h"
+#include "dragonstub/linux-efi.h"
 #include "dragonstub/linux/align.h"
+#include "dragonstub/printk.h"
+#include "dragonstub/types.h"
+#include "efidef.h"
 #include <efi.h>
 #include <efiapi.h>
+#include <efidevp.h>
 #include <efilib.h>
 #include <dragonstub/dragonstub.h>
 #include <dragonstub/elfloader.h>
@@ -189,6 +194,72 @@ static bool check_image_region(u64 base, u64 size)
 
 	return ret;
 }
+
+/**
+ * efi_remap_image_all_rwx - Remap a loaded image with the appropriate permissions
+ *                   for code and data
+ *
+ * @image_base:	the base of the image in memory
+ * @alloc_size:	the size of the area in memory occupied by the image
+ *
+ * efi_remap_image() uses the EFI memory attribute protocol to remap the code
+ * region of the loaded image read-only/executable, and the remainder
+ * read-write/non-executable. The code region is assumed to start at the base
+ * of the image, and will therefore cover the PE/COFF header as well.
+ */
+void efi_remap_image_all_rwx(unsigned long image_base, unsigned alloc_size)
+{
+	efi_guid_t guid = EFI_MEMORY_ATTRIBUTE_PROTOCOL_GUID;
+	efi_memory_attribute_protocol_t *memattr;
+	efi_status_t status;
+	u64 attr;
+
+	/*
+	 * If the firmware implements the EFI_MEMORY_ATTRIBUTE_PROTOCOL, let's
+	 * invoke it to remap the text/rodata region of the decompressed image
+	 * as read-only and the data/bss region as non-executable.
+	 */
+	status = efi_bs_call(LocateProtocol, &guid, NULL, (void **)&memattr);
+	if (status != EFI_SUCCESS)
+		return;
+
+	// Get the current attributes for the entire region
+	status = memattr->get_memory_attributes(memattr, image_base, alloc_size,
+						&attr);
+	if (status != EFI_SUCCESS) {
+		efi_warn(
+			"Failed to retrieve memory attributes for image region: 0x%lx\n",
+			status);
+		return;
+	}
+
+	efi_debug("Current attributes for image region: 0x%lx\n", attr);
+
+	// If the entire region was already mapped as non-exec, clear the
+	// attribute from the code region. Otherwise, set it on the data
+	// region.
+	if (attr & EFI_MEMORY_XP) {
+		status = memattr->clear_memory_attributes(
+			memattr, image_base, alloc_size, EFI_MEMORY_XP);
+		if (status != EFI_SUCCESS)
+			efi_warn("Failed to remap region executable\n");
+	}
+
+	if (attr & EFI_MEMORY_WP) {
+		status = memattr->clear_memory_attributes(
+			memattr, image_base, alloc_size, EFI_MEMORY_WP);
+		if (status != EFI_SUCCESS)
+			efi_warn("Failed to remap region writable\n");
+	}
+
+	if (attr & EFI_MEMORY_RP) {
+		status = memattr->clear_memory_attributes(
+			memattr, image_base, alloc_size, EFI_MEMORY_RP);
+		if (status != EFI_SUCCESS)
+			efi_warn("Failed to remap region readable\n");
+	}
+}
+
 efi_status_t efi_allocate_kernel_memory(const Elf64_Phdr *phdr_start,
 					u32 phdrs_nr, u64 *ret_paddr,
 					u64 *ret_size, u64 *ret_min_paddr,
@@ -233,6 +304,8 @@ efi_status_t efi_allocate_kernel_memory(const Elf64_Phdr *phdr_start,
 		 *ret_paddr, mem_size);
 	// zeroed the memory
 	memset((void *)(*ret_paddr), 0, mem_size);
+
+	efi_remap_image_all_rwx(*ret_paddr, mem_size);
 
 	return EFI_SUCCESS;
 }
@@ -346,5 +419,15 @@ efi_status_t load_elf(struct payload_info *payload_info)
 	payload_info->loaded_size = program_size;
 	payload_info->kernel_entry =
 		ehdr->e_entry - image_link_base_paddr + program_paddr;
+
+	// 处理权限问题
+
+	efi_remap_image_all_rwx(program_paddr, program_size);
+	extern void _start(void);
+	extern void _image_end(void);
+	u64 image_size = (u64)&_image_end - (u64)&_start;
+	efi_debug("image_size: %d\n", image_size);
+	efi_remap_image_all_rwx((u64)&_start, (image_size + 4095) & ~4095);
+
 	return EFI_SUCCESS;
 }

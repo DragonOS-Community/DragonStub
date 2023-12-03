@@ -294,14 +294,9 @@ static efi_status_t allocate_new_fdt_and_exit_boot(void *handle,
 	priv.new_fdt_addr = (void *)*new_fdt_addr;
 
 	efi_info("Exiting boot services...\n");
-	efi_warn("CURRENTLY NOT EXITING BOOT SERVICES\n");
-	// status = efi_exit_boot_services(handle, &priv, exit_boot_func);
-	status = EFI_SUCCESS;
-
-	return status;
+	status = efi_exit_boot_services(handle, &priv, exit_boot_func);
 
 	if (status == EFI_SUCCESS) {
-		efi_info("Boot services exited successfully.\n");
 		efi_set_virtual_address_map_t *svam;
 
 		if (efi_novamap)
@@ -378,8 +373,7 @@ efi_status_t efi_boot_kernel(efi_handle_t handle,
 #ifdef CONFIG_ARM
 	efi_handle_post_ebs_state();
 #endif
-	// efi_todo("efi_enter_kernel");
-	efi_info("Entering kernel...\n");
+
 	efi_enter_kernel(payload_info, fdt_addr,
 			 fdt_totalsize((void *)fdt_addr));
 	/* not reached */

@@ -1,3 +1,4 @@
+#include "dragonstub/printk.h"
 #include "efidef.h"
 #include <efi.h>
 #include <efilib.h>
@@ -376,10 +377,10 @@ efi_status_t efi_exit_boot_services(void *handle, void *priv,
 	}
 
 	efi_debug("before ExitBootServices, handle=%p, map_key=%p\n", handle, map->map_key);
-
+	efi_debug("BS->ExitBootServices=%p\n", BS->ExitBootServices);
+	efi_debug("ST->BS->ExitBootServices=%p\n", ST->BootServices->ExitBootServices);
 	status = efi_bs_call(ExitBootServices, handle, map->map_key);
-
-	efi_debug("after ExitBootServices, status: %d\n", status);
+	// exit之后不能再使用打印函数，否则会出现错误
 
 	if (status == EFI_INVALID_PARAMETER) {
 		/*

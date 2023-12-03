@@ -1,6 +1,10 @@
 #ifndef _EFI_API_H
 #define _EFI_API_H
 
+#include <efidevp.h>
+#include <efiprot.h>
+#include <eficon.h>
+
 /*++
 
 Copyright (c) 1998  Intel Corporation
