@@ -263,14 +263,17 @@ void efi_remap_image_all_rwx(unsigned long image_base, unsigned alloc_size)
 efi_status_t efi_allocate_kernel_memory(const Elf64_Phdr *phdr_start,
 					u32 phdrs_nr, u64 *ret_paddr,
 					u64 *ret_size, u64 *ret_min_paddr,
-					u64 *ret_max_paddr)
+					u64 *ret_max_paddr, u64 *ret_min_vaddr)
 {
 	efi_status_t status = EFI_SUCCESS;
+	const u64 KERNEL_MEM_ALIGN = 1 << 21; // 2MB
 
 	const Elf64_Phdr *phdr = phdr_start;
 
 	u64 min_paddr = UINT64_MAX;
 	u64 max_paddr = 0;
+	u64 min_vaddr = UINT64_MAX;
+
 	for (u32 i = 0; i < phdrs_nr; ++i, ++phdr) {
 		if (phdr->p_type != PT_LOAD) {
 			continue;
@@ -282,24 +285,32 @@ efi_status_t efi_allocate_kernel_memory(const Elf64_Phdr *phdr_start,
 			return EFI_INVALID_PARAMETER;
 		}
 		min_paddr = min(min_paddr, (u64)phdr->p_paddr);
+		min_vaddr = min(min_vaddr, (u64)phdr->p_vaddr);
 		max_paddr =
 			max(max_paddr, (u64)(phdr->p_paddr + phdr->p_memsz));
 	}
 
-	u64 mem_size = ALIGN_UP(max_paddr - min_paddr, EFI_PAGE_SIZE);
+	if (min_paddr & (KERNEL_MEM_ALIGN - 1)) {
+		efi_err("min_paddr should be aligned to KERNEL_MEM_ALIGN(%d), but got %p\n",
+			KERNEL_MEM_ALIGN, min_paddr);
+		return EFI_INVALID_PARAMETER;
+	}
+	u64 mem_size = ALIGN_UP(max_paddr - min_paddr, KERNEL_MEM_ALIGN);
 
 	status = efi_allocate_pages_aligned(mem_size, ret_paddr, UINT64_MAX,
-					    EFI_PAGE_SIZE, EfiLoaderData);
+					    KERNEL_MEM_ALIGN, EfiLoaderData);
 	// status = efi_allocate_pages_exact(mem_size, paddr);
 	if (status != EFI_SUCCESS) {
 		efi_err("Failed to allocate pages for ELF segment: status: %d, page_size=%d, min_paddr=%p, max_paddr=%p, mem_size=%d. Maybe an OOM error or section overlaps.\n",
-			status, EFI_PAGE_SIZE, ret_paddr, max_paddr, mem_size);
+			status, KERNEL_MEM_ALIGN, ret_paddr, max_paddr,
+			mem_size);
 		return status;
 	}
 
 	*ret_size = mem_size;
 	*ret_min_paddr = min_paddr;
 	*ret_max_paddr = max_paddr;
+	*ret_min_vaddr = min_vaddr;
 	efi_info("Allocated kernel memory: paddr=%p, mem_size= %d bytes\n",
 		 *ret_paddr, mem_size);
 	// zeroed the memory
@@ -313,7 +324,8 @@ efi_status_t efi_allocate_kernel_memory(const Elf64_Phdr *phdr_start,
 static efi_status_t load_program(const void *payload_start, u64 payload_size,
 				 const Elf64_Phdr *phdr_start, u32 phdrs_nr,
 				 u64 *ret_program_mem_paddr,
-				 u64 *ret_program_mem_size, u64 *ret_min_paddr)
+				 u64 *ret_program_mem_size, u64 *ret_min_paddr,
+				 u64 *ret_min_vaddr)
 {
 	efi_status_t status = EFI_SUCCESS;
 
@@ -321,9 +333,10 @@ static efi_status_t load_program(const void *payload_start, u64 payload_size,
 	u64 allocated_size = 0;
 	u64 min_paddr = 0;
 	u64 max_paddr = 0;
+	u64 min_vaddr = 0;
 	status = efi_allocate_kernel_memory(phdr_start, phdrs_nr,
 					    &allocated_paddr, &allocated_size,
-					    &min_paddr, &max_paddr);
+					    &min_paddr, &max_paddr, &min_vaddr);
 	if (status != EFI_SUCCESS) {
 		efi_err("Failed to allocate kernel memory\n");
 		return status;
@@ -376,6 +389,7 @@ static efi_status_t load_program(const void *payload_start, u64 payload_size,
 	*ret_program_mem_paddr = allocated_paddr;
 	*ret_program_mem_size = allocated_size;
 	*ret_min_paddr = min_paddr;
+	*ret_min_vaddr = min_vaddr;
 
 	return EFI_SUCCESS;
 failed:
@@ -413,13 +427,20 @@ efi_status_t load_elf(struct payload_info *payload_info)
 	u64 program_paddr = 0;
 	u64 program_size = 0;
 	u64 image_link_base_paddr = 0;
+	u64 image_link_base_vaddr = 0;
 	load_program(payload_start, payload_size, phdr_start, phdrs_nr,
-		     &program_paddr, &program_size, &image_link_base_paddr);
+		     &program_paddr, &program_size, &image_link_base_paddr,
+		     &image_link_base_vaddr);
 	payload_info->loaded_paddr = program_paddr;
 	payload_info->loaded_size = program_size;
 	payload_info->kernel_entry =
-		ehdr->e_entry - image_link_base_paddr + program_paddr;
+		ehdr->e_entry - image_link_base_vaddr + program_paddr;
 
+	efi_info("loaded_paddr: %p\n", payload_info->loaded_paddr);
+	efi_info("loaded_size: %p\n", payload_info->loaded_size);
+	efi_info("ehdr->e_entry: %lx\n", ehdr->e_entry);
+	efi_info("image_link_base_paddr: %lx\n", image_link_base_paddr);
+	efi_info("kernel_entry: %lx\n", payload_info->kernel_entry);
 	// 处理权限问题
 
 	efi_remap_image_all_rwx(program_paddr, program_size);

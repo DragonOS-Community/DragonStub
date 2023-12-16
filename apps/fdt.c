@@ -364,6 +364,7 @@ efi_status_t efi_boot_kernel(efi_handle_t handle,
 		return status;
 	}
 
+	efi_debug("kernel entry point: 0x%lx\n", payload_info->kernel_entry);
 	status = allocate_new_fdt_and_exit_boot(handle, loaded_image, &fdt_addr,
 						cmdline_ptr);
 	if (status != EFI_SUCCESS) {
