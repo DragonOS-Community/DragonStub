@@ -2,6 +2,7 @@
 #include "dragonstub/linux-efi.h"
 #include "dragonstub/linux/align.h"
 #include "dragonstub/printk.h"
+#include "dragonstub/riscv64.h"
 #include "dragonstub/types.h"
 #include "efidef.h"
 #include <efi.h>
@@ -449,6 +450,32 @@ efi_status_t load_elf(struct payload_info *payload_info)
 	u64 image_size = (u64)&_image_end - (u64)&_start;
 	efi_debug("image_size: %d\n", image_size);
 	efi_remap_image_all_rwx((u64)&_start, (image_size + 4095) & ~4095);
+
+	// 添加地址到efi configuration table
+
+	struct dragonstub_payload_efi *tbl = NULL;
+	status = efi_bs_call(AllocatePool, EfiLoaderData,
+			     sizeof(struct dragonstub_payload_efi),
+			     (void **)&tbl);
+
+	if (status != EFI_SUCCESS) {
+		efi_err("Failed to allocate memory for dragonstub_payload_efi\n");
+		return status;
+	}
+
+	tbl->payload_addr = payload_info->payload_addr;
+	tbl->payload_size = payload_info->payload_size;
+
+	efi_guid_t dragonstub_payload_efi_guid =
+		DRAGONSTUB_EFI_PAYLOAD_EFI_GUID;
+
+	status = efi_bs_call(InstallConfigurationTable,
+			     &dragonstub_payload_efi_guid, tbl);
+
+	if (status != EFI_SUCCESS) {
+		efi_err("Failed to install dragonstub_payload_efi\n");
+		return status;
+	}
 
 	return EFI_SUCCESS;
 }
