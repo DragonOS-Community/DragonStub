@@ -465,3 +465,17 @@ union efi_memory_attribute_protocol {
 		u32 clear_memory_attributes;
 	} mixed_mode;
 };
+
+/**
+ * 安装到efi config table的信息
+ * 
+ * 表示dragonstub加载的内核的地址和大小
+*/
+struct dragonstub_payload_efi {
+	u64 payload_addr;
+	u64 payload_size;
+};
+
+#define DRAGONSTUB_EFI_PAYLOAD_EFI_GUID                               \
+	MAKE_EFI_GUID(0xddf1d47c, 0x102c, 0xaaf9, 0xce, 0x34, 0xbc, 0xef, \
+		      0x98, 0x12, 0x00, 0x31)
