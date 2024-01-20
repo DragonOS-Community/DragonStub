@@ -338,10 +338,15 @@ static efi_status_t load_program(const void *payload_start, u64 payload_size,
 	status = efi_allocate_kernel_memory(phdr_start, phdrs_nr,
 					    &allocated_paddr, &allocated_size,
 					    &min_paddr, &max_paddr, &min_vaddr);
+
 	if (status != EFI_SUCCESS) {
 		efi_err("Failed to allocate kernel memory\n");
 		return status;
 	}
+
+	// 清空内存
+	memset((void *)allocated_paddr, 0, allocated_size);
+
 	const Elf64_Phdr *phdr = phdr_start;
 
 	for (u32 i = 0; i < phdrs_nr; ++i, ++phdr) {
@@ -383,8 +388,8 @@ static efi_status_t load_program(const void *payload_start, u64 payload_size,
 		       payload_start + file_offset, file_size);
 
 		// efi_debug(
-		// 	"segment loaded: paddr=%p, mem_size=%d, file_size=%d\n",
-		// 	paddr, mem_size, file_size);
+		// 	"segment loaded: file_offset: %p paddr=%p, mem_size=%p, file_size=%p\n",
+		// 	file_offset, paddr, mem_size, file_size);
 	}
 
 	*ret_program_mem_paddr = allocated_paddr;
