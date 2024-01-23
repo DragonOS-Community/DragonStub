@@ -468,8 +468,8 @@ efi_status_t load_elf(struct payload_info *payload_info)
 		return status;
 	}
 
-	tbl->payload_addr = payload_info->payload_addr;
-	tbl->payload_size = payload_info->payload_size;
+	tbl->loaded_addr = payload_info->loaded_paddr;
+	tbl->size = payload_info->loaded_size;
 
 	efi_guid_t dragonstub_payload_efi_guid =
 		DRAGONSTUB_EFI_PAYLOAD_EFI_GUID;

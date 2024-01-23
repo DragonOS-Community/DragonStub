@@ -8,7 +8,7 @@
 bool efi_nochunk;
 bool efi_nokaslr = true;
 // bool efi_nokaslr = !IS_ENABLED(CONFIG_RANDOMIZE_BASE);
-bool efi_novamap = false;
+bool efi_novamap = true;	// 强制开启novamap
 
 static bool efi_noinitrd;
 static bool efi_nosoftreserve;
