@@ -469,11 +469,11 @@ union efi_memory_attribute_protocol {
 /**
  * 安装到efi config table的信息
  * 
- * 表示dragonstub加载的内核的地址和大小
+ * 表示dragonstub把内核加载到的地址和大小
 */
 struct dragonstub_payload_efi {
-	u64 payload_addr;
-	u64 payload_size;
+	u64 loaded_addr;
+	u64 size;
 };
 
 #define DRAGONSTUB_EFI_PAYLOAD_EFI_GUID                               \

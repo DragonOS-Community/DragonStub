@@ -306,7 +306,6 @@ static efi_status_t allocate_new_fdt_and_exit_boot(void *handle,
 		svam = ST->RuntimeServices->SetVirtualAddressMap;
 		status = svam(priv.runtime_entry_count * desc_size, desc_size,
 			      desc_ver, priv.runtime_map);
-
 		/*
 			 * We are beyond the point of no return here, so if the call to
 			 * SetVirtualAddressMap() failed, we need to signal that to the
