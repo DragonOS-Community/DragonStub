@@ -37,12 +37,10 @@
 SRCDIR = .
 
 VPATH = $(SRCDIR)
+TOPDIR = $(SRCDIR)/..
 
 include $(SRCDIR)/../Make.defaults
 
-TOPDIR = $(SRCDIR)/..
-
-CDIR=$(TOPDIR)/..
 PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
 FILES	= reloc_$(ARCH)  
 
@@ -69,7 +67,7 @@ gnu-efi.pc:
 
 
 clean:
-	rm -f $(TARGETS) *~ *.o $(OBJS)
+	@rm -vf $(TARGETS) *~ *.o $(OBJS)
 
 install:
 	mkdir -p $(INSTALLROOT)$(LIBDIR)

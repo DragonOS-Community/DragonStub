@@ -37,12 +37,10 @@
 SRCDIR = .
 
 VPATH = $(SRCDIR)
+TOPDIR = $(SRCDIR)/..
 
 include $(SRCDIR)/../Make.defaults
 
-TOPDIR = $(SRCDIR)/..
-
-CDIR = $(TOPDIR)/..
 FILES = boxdraw smbios console crc data debug dpath \
         entry error event exit guid hand hw init lock \
         misc pause print sread str cmdline\
@@ -80,7 +78,7 @@ libefi.a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 clean:
-	rm -f libefi.a *~ $(OBJS) */*.o
+	@rm -vf libefi.a *~ $(OBJS) */*.o
 
 $(LIBDIRINSTALL):
 	mkdir -p $@

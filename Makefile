@@ -37,7 +37,7 @@
 include env.mk
 
 
-export VERSION = 3.0.17
+export VERSION = 3.0.18
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 SRCDIR = $(dir $(MKFILE_PATH))
@@ -114,7 +114,7 @@ $(SUBDIRS):
 	$(MAKE) -C $(OBJDIR)/$@ -f $(SRCDIR)/$@/Makefile SRCDIR=$(SRCDIR)/$@ ARCH=$(ARCH)
 
 clean:
-	rm -f *~
+	rm -vrf *~
 	rm -f $(shell find . -name "*.o")
 	@set -e ; for d in $(SUBDIRS); do \
 		if [ -d $(OBJDIR)/$$d ]; then \
